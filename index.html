@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200..900&family=Zen+Kaku+Gothic+New:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/sanitize.css" rel="stylesheet"/>
+  <title>Shapes Playground</title>
+  <style>
+    :root{
+      --red:#D54640;
+      --blue:#6274BE;
+      --yellow:#EFC736;
+    }
+    html,body{ height:100%; margin:0; }
+
+    .stage{
+      position:relative;
+      width:100vw;
+      height:100vh;
+      overflow:hidden;
+      background:transparent;
+      touch-action:manipulation;
+      cursor:crosshair;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    }
+
+    .shape{
+      position:absolute;
+      mix-blend-mode:multiply; /* 重なりは乗算 */
+      transform-origin:center center;
+      will-change:transform;
+    }
+
+    .circle{ aspect-ratio:1/1; border-radius:50%; background:var(--red); }
+
+    /* D型: 正方形サイズで隣接する2角を丸く削る（太め） */
+    .dee{ background:var(--blue); border-radius:10000px 10000px 0 0; }
+
+    .hud{
+      position:absolute; inset:auto auto 12px 12px;
+      padding:8px 10px; border-radius:10px; font-size:12px; line-height:1.4;
+      background:#0000000d; backdrop-filter:saturate(1.2) blur(4px);
+      user-select:none; pointer-events:none;
+    }
+
+    /* 画面中央のコピー */
+    .middle{
+      position:absolute; top:47%; left:50%;
+      transform:translate(-50%, -50%); color:#222;
+      display:flex; align-items:center; justify-content:center;
+      width:100%; pointer-events:none; /* モーダル外でもクリックを拾わないように */
+      gap:0;
+      flex-wrap:nowrap;
+    }
+    .middle h1{ color:#222; font-family:"Zen Kaku Gothic New", sans-serif; font-weight:500; font-size:90px; margin:0; }
+    .jinsei-box{ padding:0 90px; border:#222 solid 3px; margin-right:60px; }
+    .jinsei-box span{ margin:10px; }
+
+    .title{ position:absolute; bottom:25%; left:50%; transform:translateX(-50%); font-family:"Zen Kaku Gothic New", sans-serif; pointer-events:none; }
+    .title h1{ margin:0; text-align:center; font-size:42px; color:#222; font-weight:500; }
+    .waseda-span{ margin:0 15px; }
+    .nimaru-span{ margin:0 8px; }
+    .waseda-nimaru-span{ margin:0 25px; }
+
+    /* ===== Intro Modal ===== */
+    .intro-overlay{ position:fixed; inset:0; background:rgba(255,255,255,0.55); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; z-index:10000; }
+    .intro-card{ position:relative; background:#fff; border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.18); padding:36px; width:min(860px, 94vw); font-family:"Zen Kaku Gothic New", sans-serif; color:#222; }
+    .intro-title{ margin:0 0 8px; font-size:28px; font-weight:700; }
+    .intro-desc{ margin:0 0 16px; line-height:1.8; font-size:16px; }
+    .intro-rules{ margin:0; padding-left:22px; line-height:1.8; }
+    .intro-actions{ display:flex; gap:12px; justify-content:flex-end; margin-top:18px; }
+    .intro-close{ position:absolute; top:10px; right:12px; border:none; background:transparent; font-size:28px; line-height:1; cursor:pointer; padding:6px; border-radius:8px; }
+    .intro-close:focus-visible{ outline:2px solid #222; outline-offset:2px; }
+    .intro-start{ border:none; padding:10px 16px; font-size:16px; border-radius:10px; cursor:pointer; background:#222; color:#fff; }
+    .intro-start:focus-visible{ outline:2px solid #222; outline-offset:2px; }
+
+    /* ===== Mobile (スマホ) レスポンシブ ===== */
+    @media (max-width: 640px){
+      .hud{ font-size:11px; }
+      .intro-card{ width:min(92vw, 560px); padding:22px 20px; }
+      .intro-title{ font-size:22px; }
+      .intro-desc{ font-size:14px; }
+      .intro-start{ font-size:15px; padding:10px 14px; }
+
+      /* 中央コピーは 2 行構成に：
+         1行目 = 「サ…ト」ボックス + 「に、」
+         2行目 = 「つながろう」
+      */
+      .middle{ top:46%; padding:0 12px; flex-wrap:wrap; row-gap:8px; }
+      .middle h1{ font-size:clamp(36px, 9vw, 56px); }
+      .jinsei-box{ margin-right:16px; padding:0 28px; border-width:2px; }
+      .middle > :nth-child(3){ flex-basis:100%; text-align:center; }
+
+      .title h1{ font-size:clamp(20px, 5.5vw, 32px); }
+      .sp-connection-span{ margin:0 7px; }
+      .sp-connection-margin-top{ margin-top:20px !important; }
+
+      .waseda-span{ margin:0 10px; }
+      .nimaru-span{ margin:0 5px; }
+      .waseda-nimaru-span{ margin:0 0; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 中央コピー群（背景演出） -->
+  <div class="middle">
+    <div class="jinsei-box"><h1>サ<span></span>イ<span></span>ト</h1></div>
+    <h1>に、</h1>
+    <h1 class="sp-connection-margin-top">つ<span class="sp-connection-span"></span>な<span class="sp-connection-span"></span>が<span class="sp-connection-span"></span>ろ<span class="sp-connection-span"></span>う</h1>
+  </div>
+
+  <!-- ステージ -->
+  <div id="stage" class="stage" aria-label="クリック/タップで図形を置けます">
+    <div id="hud" class="hud">クリック / タップで図形を置く（重なると乗算）</div>
+  </div>
+
+  <div class="title">
+    <h1>早<span class="waseda-span"></span>稲<span class="waseda-span"></span>田<span class="waseda-span"></span>祭<span class="waseda-nimaru-span"></span>2<span class="nimaru-span"></span>0<span class="nimaru-span"></span>2<span class="nimaru-span"></span>5</h1>
+  </div>
+
+  <!-- Intro Modal -->
+  <div id="intro-overlay" class="intro-overlay" aria-modal="true" role="dialog" aria-labelledby="intro-title">
+    <div class="intro-card">
+      <button id="intro-close" class="intro-close" aria-label="閉じる">×</button>
+      <h2 id="intro-title" class="intro-title">体験のしかた</h2>
+      <p class="intro-desc">
+        任意のところをタップ / クリックで図形がカタチ・イロともにランダムで設置できます。<br>
+        自分の思うように画面を彩ってみよう。<br>
+        サイトに、つながろう
+      </p>
+      <h3 class="intro-title" style="font-size:20px; margin-top:22px;">ルール</h3>
+      <ol class="intro-rules">
+        <li>乗算がかかるのは、最大1回</li>
+        <li>図形は、最大120個</li>
+        <li>カタチは2種類・イロは3種類</li>
+      </ol>
+      <div class="intro-actions">
+        <button id="intro-start" class="intro-start" aria-label="はじめる">はじめる</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== Config ======
+    const MAX_SHAPES = 120;            // 最大個数（キャンバスが埋まりすぎないように）
+    const MAX_ATTEMPTS = 48;           // ランダム再配置の試行回数
+    const ALLOW_OVERLAP_LIMIT = 1;     // 同時重なりを 1 回までに制限
+
+    // ====== Utils ======
+    function clamp(value, min, max){ return Math.max(min, Math.min(max, value)); }
+    function randInt(min, max){ return Math.floor(Math.random()*(max-min+1)) + min; }
+    function randFloat(min, max){ return Math.random()*(max-min) + min; }
+
+    // 円:半径R / D型:正方形ベース → 衝突は近似で『外接円』を使用
+    function computeSize(type, base){
+      // スマホ幅では 15% 小さく（"一回り"）
+      const isMobile = window.matchMedia('(max-width: 640px)').matches;
+      const scale = isMobile ? 0.7 : 1;
+      const size = base * scale;
+      if(type === 'circle') return { w: size, h: size };
+      return { w: size, h: size }; // Dも正方形ベース
+    }
+
+    // ====== State ======
+    const stage  = document.getElementById('stage');
+    const hud    = document.getElementById('hud');
+    const introOverlay = document.getElementById('intro-overlay');
+    const introClose   = document.getElementById('intro-close');
+    const introStart   = document.getElementById('intro-start');
+
+    // 赤と青の出現確率を上げる（黄色を少なめ）
+    const COLORS = ['#D54640', '#D54640', '#6274BE', '#6274BE', '#EFC736'];
+    const TYPES  = ['circle', 'dee'];
+
+    // 既存図形の中心と外接円半径を管理
+    /** @type {{el:HTMLElement,cx:number,cy:number,r:number}[]} */
+    const placed = [];
+
+    function updateHud(){
+      hud.textContent = `クリック / タップで図形を置く（重なると乗算） | ${placed.length}/${MAX_SHAPES}`;
+    }
+
+    // 与えた中心(cx,cy)・半径rで、既存と何個重なるか（外接円で判定）
+    function countOverlaps(cx, cy, r){
+      let count = 0;
+      for(const s of placed){
+        const dx = cx - s.cx; const dy = cy - s.cy;
+        const sum = r + s.r;
+        if((dx*dx + dy*dy) < (sum*sum)) count++;
+        if(count > ALLOW_OVERLAP_LIMIT) break;
+      }
+      return count;
+    }
+
+    // stage 内でランダムに『重なりが制限以内』な中心座標を探す
+    function findValidPosition(w, h){
+      const rect = stage.getBoundingClientRect();
+      const r = Math.max(w, h) / 2;
+      for(let i=0; i<MAX_ATTEMPTS; i++){
+        const cx = randFloat(r, rect.width - r);
+        const cy = randFloat(r, rect.height - r);
+        if(countOverlaps(cx, cy, r) <= ALLOW_OVERLAP_LIMIT){
+          return { cx, cy };
+        }
+      }
+      return null; // 見つからない場合
+    }
+
+    // Pointer Events の二重発火対策
+    let __lastTap = {t:0,x:0,y:0};
+
+    function addShape(clientX, clientY){
+      // モーダル表示中は何もしない
+      if(isIntroOpen()) return;
+
+      if(placed.length >= MAX_SHAPES){
+        hud.textContent = `上限 ${MAX_SHAPES} 個に達しました`;
+        return;
+      }
+      const type = TYPES[Math.floor(Math.random()*TYPES.length)];
+      const el = document.createElement('div');
+      el.className = `shape ${type}`;
+
+      // ランダム色
+      el.style.background = COLORS[Math.floor(Math.random()*COLORS.length)];
+
+      // サイズ（正方形基準）
+      const size = randInt(72, 220);
+      const { w, h } = computeSize(type, size);
+      el.style.width  = w + 'px';
+      el.style.height = h + 'px';
+
+      // 回転
+      const rot = randInt(0, 359);
+      el.style.transform = `translate(-50%, -50%) rotate(${rot}deg)`;
+
+      // 初期はユーザーのクリック位置
+      const rect = stage.getBoundingClientRect();
+      let cx = clamp(clientX - rect.left,  w*0.5, rect.width  - w*0.5);
+      let cy = clamp(clientY - rect.top,   h*0.5, rect.height - h*0.5);
+      const r  = Math.max(w, h) / 2;
+
+      // 同時重なり数をチェック。2つ以上ならランダム再配置を試行
+      if(countOverlaps(cx, cy, r) > ALLOW_OVERLAP_LIMIT){
+        const found = findValidPosition(w, h);
+        if(!found){
+          console.warn('有効な配置が見つからなかったためスキップ');
+        	return;
+        }
+        cx = found.cx; cy = found.cy;
+      }
+
+      // 反映（left/top は中心座標で扱う）
+      el.style.left = cx + 'px';
+      el.style.top  = cy + 'px';
+      stage.appendChild(el);
+
+      placed.push({ el, cx, cy, r });
+      updateHud();
+    }
+
+    function getPoint(evt){
+      if(evt.touches && evt.touches[0]){
+        return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
+      }
+      return { x: evt.clientX, y: evt.clientY };
+    }
+
+    function handlePointer(evt){
+      // Prevent the follow-up mouse compatibility click and de-dupe rapid double fires
+      if (evt.cancelable) evt.preventDefault();
+
+      // Get raw client coords for dedupe check
+      const cx = (evt.clientX != null) ? evt.clientX : (evt.touches && evt.touches[0] ? evt.touches[0].clientX : null);
+      const cy = (evt.clientY != null) ? evt.clientY : (evt.touches && evt.touches[0] ? evt.touches[0].clientY : null);
+      if (cx != null && cy != null){
+        const now = performance.now();
+        const dx = cx - __lastTap.x, dy = cy - __lastTap.y;
+        if ((now - __lastTap.t) < 260 && (dx*dx + dy*dy) < 36){
+          return; // ignore near-duplicate within 260ms & ~6px
+        }
+        __lastTap = { t: now, x: cx, y: cy };
+      }
+
+      const p = getPoint(evt);
+      addShape(p.x, p.y);
+    }
+
+    // Pointer Events に一本化
+    stage.addEventListener('pointerdown', handlePointer, {passive:false});
+
+    // ===== Intro Modal controls =====
+    function isIntroOpen(){
+      return introOverlay && introOverlay.style.display !== 'none';
+    }
+    function closeIntro(){
+      if(!introOverlay) return;
+      introOverlay.style.display = 'none';
+    }
+
+    introClose.addEventListener('click', closeIntro);
+    introStart.addEventListener('click', closeIntro);
+
+    // キーボード対応（Enter/Spaceで開始、Escで閉じる）
+    introOverlay.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape'){ closeIntro(); }
+      if(e.key === 'Enter' || e.key === ' '){ closeIntro(); }
+    });
+
+    // ====== Minimal Test Suite (console) ======
+    (function runTests(){
+      const assert = (cond, msg)=>{ if(!cond) throw new Error(msg); };
+      try{
+        // clamp
+        assert(clamp(5,0,10) === 5, 'clamp basic');
+        assert(clamp(-1,0,10) === 0, 'clamp lower bound');
+        assert(clamp(11,0,10) === 10, 'clamp upper bound');
+
+        // size
+        let s = computeSize('circle', 100);  
+        assert(Math.round(s.w) === 100 || Math.round(s.w) === 85, 'circle size scaled for mobile/desktop');
+        s = computeSize('dee', 100);
+        assert(Math.round(s.w) === 100 || Math.round(s.w) === 85, 'D size scaled for mobile/desktop');
+
+        // overlap check: 2つの半径50の円、中心距離60 → 重なる
+        const tmpPlaced = [{cx:0,cy:0,r:50}];
+        const _countOverlaps = (cx,cy,r)=>{ let c=0; for(const t of tmpPlaced){ const dx=cx-t.cx, dy=cy-t.cy; const sum=r+t.r; if((dx*dx+dy*dy)<sum*sum) c++; } return c; };
+        assert(_countOverlaps(60,0,50)===1, 'overlap detect');
+
+        console.log('%cAll tests passed ✅','font-weight:bold');
+      }catch(e){ console.error('Test failed ❌', e); }
+    })();
+
+    // 初期HUD
+    (function(){ updateHud(); })();
+  </script>
+</body>
+</html>
